@@ -15,9 +15,13 @@ logger = logging.getLogger(__name__)
 # --- News Fetching Function ---
 def get_top_headlines(country: str):
     """Fetch top 5 headlines for a given country using NewsAPI."""
+    if not NEWS_API_KEY:
+        return []
+    
     url = "https://newsapi.org/v2/top-headlines"
     params = {
         "country": country,
+        "category": "sports",
         "pageSize": 5,
         "apiKey": NEWS_API_KEY
     }
@@ -36,7 +40,7 @@ def get_top_headlines(country: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a welcome message when /start is issued."""
     keyboard = [
-        [InlineKeyboardButton("📰 Get News", callback_data="news")],
+        [InlineKeyboardButton("📰 Get Sports News", callback_data="news")],
         [InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -58,7 +62,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Show country selection
         countries = [
             ("🇺🇸 US", "us"), ("🇬🇧 UK", "gb"), ("🇩🇪 Germany", "de"),
-            ("🇫🇷 France", "fr"), ("🇪🇸 Spain", "es"), ("🇮🇹 Italy", "it")
+            ("🇫🇷 France", "fr"), ("🇪🇸 Spain", "es"), ("🇮🇹 Italy", "it"),
+            ("🇨🇦 Canada", "ca"), ("🇦🇺 Australia", "au")
         ]
         keyboard = [[InlineKeyboardButton(name, callback_data=f"country_{code}")] 
                     for name, code in countries]
@@ -79,9 +84,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     elif query.data.startswith("country_"):
         country_code = query.data.split("_")[1]
-        country_names = {"us": "🇺🇸 United States", "gb": "🇬🇧 United Kingdom", 
-                         "de": "🇩🇪 Germany", "fr": "🇫🇷 France", 
-                         "es": "🇪🇸 Spain", "it": "🇮🇹 Italy"}
+        country_names = {
+            "us": "🇺🇸 United States", "gb": "🇬🇧 United Kingdom", 
+            "de": "🇩🇪 Germany", "fr": "🇫🇷 France", 
+            "es": "🇪🇸 Spain", "it": "🇮🇹 Italy",
+            "ca": "🇨🇦 Canada", "au": "🇦🇺 Australia"
+        }
         
         await query.edit_message_text(f"📡 Fetching sports news for {country_names.get(country_code, country_code)}...")
         
@@ -122,7 +130,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🤔 **How to use this bot:**\n\n"
         "1. Press /start to see the main menu\n"
-        "2. Click 'Get News' to select a country\n"
+        "2. Click 'Get Sports News' to select a country\n"
         "3. Choose a country to see top sports headlines\n\n"
         "You can also just send me any message and I'll respond!"
     )
@@ -140,12 +148,16 @@ def main():
     """Start the bot."""
     if not TELEGRAM_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN environment variable is not set!")
+        logger.error("Please add it in Railway > Variables tab")
         return
     
     if not NEWS_API_KEY:
         logger.warning("NEWS_API_KEY is not set! News fetching will fail.")
+        logger.warning("Add it in Railway > Variables tab")
     
     logger.info("Starting bot with long polling...")
+    logger.info("Bot token: " + ("✅ Set" if TELEGRAM_TOKEN else "❌ Missing"))
+    logger.info("News API key: " + ("✅ Set" if NEWS_API_KEY else "❌ Missing"))
     
     # Create the Application
     application = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -157,6 +169,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     
     # Start the bot
+    logger.info("Bot is running! Press Ctrl+C to stop.")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
